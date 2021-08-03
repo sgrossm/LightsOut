@@ -4,13 +4,13 @@ using UnityEngine.Audio;
 public class AudioManager : MonoBehaviour
 {
     public AudioMixer mainMixer;
-    public AudioClip flipSwitch;
-    public AudioClip gameOver;
-    public AudioClip restartGame;
+    [SerializeField] private AudioClip flipSwitch;
+    [SerializeField] private AudioClip gameOver;
+    [SerializeField] private AudioClip restartGame;
 
     private AudioSource _audioSource;
 
-    void Start()
+    private void Start()
     {
         _audioSource = GetComponent<AudioSource>();
     }
