@@ -1,7 +1,7 @@
-### Lights out is a puzzle game where you must turn off all the lights to win! 
-### Clicking on a light flips it, as well as the adjacent lights. 
+### <a href="https://stevegrossman.me/LightsOutWeb/index.html"> <u> You can play the game here! </a> </u> <br/>
 
-######You can play the game <a href="https://stevegrossman.me/LightsOutWeb/index.html"> here! </a> : <br/>
+#### Lights out is a puzzle game where you must turn off all the lights to win! 
+#### Clicking on a light flips it, as well as the adjacent lights. 
  
 If you want to run the game locally, you can find an executable in the StandaloneBuild folder. Have fun!
 
