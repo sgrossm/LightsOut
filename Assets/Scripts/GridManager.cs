@@ -12,23 +12,29 @@ public class GridManager : MonoBehaviour
     // Initialize button grid
     private static Button[,] _buttonGrid = new Button[SIZE, SIZE];
 
-    // variables to handle numMoves/timer
-    private int numMoves = 0;
-    private float startTime;
+    // has the game been started yet?
+    private bool gameStarted = false;
+
+    // variables to handle numMoves/timer/difficulty
+    private int _numMoves = 0;
+    private float _startTime;
+    private float _difficulty = 0.15f; // default is easy
+
+    // Keep track of number of off lights
+    private int _numOffLights;
 
     // Create audio manager for sound playback
     private AudioManager _audioManager;
 
-    // check if game is over
-    private bool gameDoneTextDisplayed = false;
-
     // Declare text and buttons - set in Inspector
+    [SerializeField] private Button _playGameBtn;
+    [SerializeField] private Button _retryBtn;
     [SerializeField] private Text _numMovesText;
     [SerializeField] private Text _timeText;
-    [SerializeField] private Text _gameOverText;
-    [SerializeField] private Button _restartGame;
+    [SerializeField] private Text _gameText;
     [SerializeField] private Toggle _soundToggle;
     [SerializeField] private Slider _volumeSlider;
+    [SerializeField] private Dropdown _difficultyDrop;
 
     private void Awake()
     {
@@ -41,18 +47,18 @@ public class GridManager : MonoBehaviour
             {
                 // Create 2D button grid from 1D array
                 _buttonGrid[i, j] = buttons[i * SIZE + j];
+                _buttonGrid[i, j].interactable = false;
             }
         }
     }
 
     private void Start()
     {
-        initializeGame();
         _audioManager = GetComponent<AudioManager>();
     }
 
     private void initializeGame()
-    {
+    {        
         initText();
         initGrid();
         createRandomSolvableGrid();
@@ -61,13 +67,17 @@ public class GridManager : MonoBehaviour
     private void initText()
     {
         // Initialize ui objects 
-        _gameOverText.gameObject.SetActive(false);
-        _restartGame.gameObject.SetActive(false);
-        gameDoneTextDisplayed = false;
-        startTime = Time.time;
-        _timeText.text = startTime.ToString();
-        numMoves = 0;
-        _numMovesText.text = "Moves: " + numMoves;
+        _numMovesText.gameObject.SetActive(true);
+        _timeText.gameObject.SetActive(true);
+        _retryBtn.gameObject.SetActive(true);
+
+        _gameText.gameObject.SetActive(false);
+        _playGameBtn.gameObject.SetActive(false);
+        _difficultyDrop.gameObject.SetActive(false);
+        _startTime = Time.time;
+        _timeText.text = _startTime.ToString();
+        _numMoves = 0;
+        _numMovesText.text = "Moves: " + _numMoves;
     }
 
     private void initGrid()
@@ -78,8 +88,10 @@ public class GridManager : MonoBehaviour
             {
                 // initialize all lights to off
                 _buttonGrid[i, j].image.color = _offColor;
+                _buttonGrid[i, j].interactable = true;
             }
         }
+        _numOffLights = SIZE * SIZE;
     }
 
     private void createRandomSolvableGrid()
@@ -89,38 +101,29 @@ public class GridManager : MonoBehaviour
             for (int j = 0; j < SIZE; ++j)
             {
                 // randomly turn on lights using toggleLight()                
-                if (Random.Range(0.0f, 1.0f) < 0.25f)
+                if (Random.Range(0.0f, 1.0f) < _difficulty)
                 {
                     // Using this funcion ensures the game will be solvable
                     toggleLight(i, j);
                 }
             }
         }
-
     }
 
     private void Update()
     {
-
-        if (!isGameFinished())
+        // As long as the number of off lights is not equal to the grid size
+        // keep updating the clock
+        if (_numOffLights != SIZE * SIZE && gameStarted)
         {
-            // As long as the game is not over,
-            // keep updating the timer
             UpdateTime();
-        }
-
-        else
-        {
-            // Game is over
-            if (!gameDoneTextDisplayed)
-                gameIsOver();
         }
     }
 
     private void UpdateTime()
     {
         // Get amount of time elapsed
-        float elapsed = Time.time - startTime;
+        float elapsed = Time.time - _startTime;
         // Convert to min/sec
         int minutes = Mathf.FloorToInt(elapsed / 60f);
         int seconds = Mathf.FloorToInt(elapsed - minutes * 60);
@@ -146,9 +149,14 @@ public class GridManager : MonoBehaviour
                     _audioManager.PlayFlipSound();
 
                     // update number of moves
-                    numMoves++;
-                    _numMovesText.text = "Moves: " + numMoves;
+                    _numMoves++;
+                    _numMovesText.text = "Moves: " + _numMoves;
 
+                    // check if the game is over
+                    if (isGameFinished())
+                    {
+                        gameIsOver();
+                    }
                 }
             }
         }
@@ -256,12 +264,18 @@ public class GridManager : MonoBehaviour
         Image toFlip = _buttonGrid[x, y].image;
 
         // if the current button's light is on, turn if off
-        // otherwise turn it on
+        // otherwise turn it on and update number of off lights
         if (toFlip.color.Equals(_onColor))
+        {
             toFlip.color = _offColor;
+            _numOffLights += 1;
+        }
 
         else
+        {
             toFlip.color = _onColor;
+            _numOffLights -= 1;
+        }            
 
     }
 
@@ -269,27 +283,46 @@ public class GridManager : MonoBehaviour
     private bool isGameFinished()
     {
         //check that all lights are off
-        for (int i = 0; i < SIZE; ++i)
-        {
-            for (int j = 0; j < SIZE; ++j)
-            {
-                // if any lights are on, we aren't done
-                if (_buttonGrid[i, j].image.color.Equals(_onColor))
-                    return false;
-            }
-        }
-
-        // no lights are on, game is over!
-        return true;
+        return (_numOffLights == SIZE * SIZE);
     }
 
     private void gameIsOver()
     {
+        _audioManager.StopMusic();
+        _audioManager.PlayYouWinSound();
+
         // Display game over text and restart button
-        _gameOverText.gameObject.SetActive(true);
-        _restartGame.gameObject.SetActive(true);
-        _soundToggle.interactable = false;
-        _volumeSlider.interactable = false;
+        _gameText.text = "You win!";
+        _playGameBtn.GetComponentInChildren<Text>().text = "Restart";
+        ShowStartScreen();
+    }
+
+    public void GameReset()
+    {
+        // clear grid
+        initGrid(); 
+
+        // Set audio            
+        _audioManager.PlayMainMenuSound();
+        _audioManager.SetMenuMusic();
+        
+        // Set initial game screen text 
+        _gameText.text = "Lights Out!";
+        _playGameBtn.GetComponentInChildren<Text>().text = "Start";
+        ShowStartScreen();
+    }
+
+    private void ShowStartScreen()
+    {
+        // Makes start screen game objects interactable
+        gameStarted = false;
+        _gameText.gameObject.SetActive(true);
+        _playGameBtn.gameObject.SetActive(true);
+        _difficultyDrop.gameObject.SetActive(true);
+
+        _retryBtn.gameObject.SetActive(false);
+        _numMovesText.gameObject.SetActive(false);
+        _timeText.gameObject.SetActive(false);
 
         for (int i = 0; i < SIZE; ++i)
         {
@@ -299,14 +332,30 @@ public class GridManager : MonoBehaviour
                 _buttonGrid[i, j].interactable = false;
             }
         }
-
-        gameDoneTextDisplayed = true;
     }
 
-    public void restartGame()
+    public void SetDifficulty()
     {
-        // OnClick event handler for Restart button - set in Inspector
-        _audioManager.PlayRestartGameSound();
+        // Set in inspector
+        _difficultyDrop.RefreshShownValue();
+        // 0 - easy, 2 - medium, 2 - hard
+        if (_difficultyDrop.value == 0)
+            _difficulty = 0.15f;
+        else if (_difficultyDrop.value == 1)
+            _difficulty = 0.50f;
+        else if (_difficultyDrop.value == 2)
+            _difficulty = 0.90f;
+        else
+            Debug.LogWarning("Difficulty is not set");
+        _audioManager.PlaySetDifficultyGameSound();
+    }
+
+    public void StartGame()
+    {
+        // OnClick event handler for (Re)start button - set in Inspector
+        _audioManager.PlayStartGameSound();
+        _audioManager.SetGameplayMusic();
+        gameStarted = true;
 
         for (int i = 0; i < SIZE; ++i)
         {
@@ -320,7 +369,9 @@ public class GridManager : MonoBehaviour
         _soundToggle.interactable = true;
         _volumeSlider.interactable = true;
 
+
         // reinitialize game state
+        _numOffLights = 0;
         initializeGame();
     }
 
